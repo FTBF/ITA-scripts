@@ -10,4 +10,4 @@ If running this script on another computer than `ita-cr-01` the packages `tkinte
 
 # Integrated proton count
 
-The total integrated number of protons delivered to ITA can be retrieved from ACNet using the `intagrateITA.py` script.  This script must be run from a computer with access to ACNet such as `ita-cr-01.fnal.gov`.  This script can be run with the same setup script as above, `source setup.sh`.  This script gives several options which can be seen by running the help with `python integrateITA_py3.py -h`.  
+The total integrated number of protons delivered to ITA can be retrieved from ACNet using the `integrateITA.py` script.  This script must be run from a computer with access to ACNet such as `ita-cr-01.fnal.gov`.  This script can be run with the same setup script as above, `source setup.sh`.  This script gives several options which can be seen by running the help with `python integrateITA.py -h`.  
