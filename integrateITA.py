@@ -103,15 +103,27 @@ def getITAdata(T1, T2, device, logger, testrange=-1):
         if not checkdigit(theseE12): continue # Sometimes it's '*****' and not a number.
         else: protoncount = abs(float(theseE12))*1e12
         # Need to check minimum time between measurements?  50 seconds?
-        values.append(protoncount)
+
         ts_string = thisDate+' '+thisTime
-        timestamps.append(pd.to_datetime(ts_string))
+        time = pd.to_datetime(ts_string)
+
+        # removes connections between downtimes in plot
+        if len(timestamps) > 0:
+            dt = time - timestamps[-1]
+            if dt > timedelta(minutes=3):
+                values.append(np.nan)
+                timestamps.append(time)
+
+        values.append(protoncount)
+        timestamps.append(time)
+
+
         integrate += protoncount
         
     #close loop over entries
     # Add lists to dataframe, and convert the timestamps to epoch seconds (not nanoseconds)
     df = pd.DataFrame({'timestamp':timestamps, 'proton count':values})
-    df['timestamp'] = df['timestamp'].astype('int64')//1.0e9
+#    df['timestamp'] = df['timestamp'].astype('int64')//1.0e9
 
     # Add cumulative sum to the dataframe, and return
     df.sort_values('timestamp', inplace=True)
@@ -147,13 +159,14 @@ if extrapo < 0:
 extratext = ''
 if extrapolate:
     shortdf = df.tail(extrapo)
+    shortdf['timestamp'] = shortdf['timestamp'].astype('int64')//1.0e9
 
     # Get the mean proton count
     protoncounts = shortdf['proton count'].dropna().astype(float)
     count_avg = protoncounts.mean()
 
     shotssofar = len(protoncounts)+1
-    print ('Shots so far:'+ str(shotssofar))
+    print ('Pulses so far:'+ str(shotssofar))
     
     # Set outliers more than 10% above or below mean to NaN
     #protoncounts  = protoncounts.where( protoncounts >= 0.9*count_avg )
@@ -182,12 +195,12 @@ if extrapolate:
     epochSecs = shortdf['timestamp']
     first_timestamp = shortdf['timestamp'][0]
     last_timestamp  = shortdf['timestamp'].iloc[-1]
-    SecondsSoFar = last_timestamp - first_timestamp
+    SecondsSoFar = (last_timestamp - first_timestamp)
     print ('Elapsed time in seconds since first beam: '+str(SecondsSoFar))
     print ('   Approx. time-averaged beam rate: {0:.3e} protons per second.'.format(protons_sofar / SecondsSoFar))
     
     crude_interval_avg = SecondsSoFar / float(shotssofar)
-    print ('   Approx. time-averaged shot interval {0:.3e} s'.format(crude_interval_avg))
+    print ('   Approx. time-averaged pulse interval {0:.3e} s'.format(crude_interval_avg))
     # How long will it take?
     last = pd.Timestamp(last_timestamp, unit='s')
     roughguess = last + pd.Timedelta(seconds = crude_interval_avg * shotsleft_avg)
@@ -245,7 +258,7 @@ if plot:
     df.drop(columns=['proton count'], axis=0, inplace=True)
     if debug: print (df.columns.values)
     
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+    #df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
     # Make the plot, returning the Axes object
     plt.figure(figsize=(9.0,6.0))
     ax = sns.lineplot(x='timestamp', y='value', hue='variable', data=pd.melt(df, ['timestamp']))
@@ -254,28 +267,30 @@ if plot:
     plt.ticklabel_format(style='scientific', axis='y', useOffset=False, useMathText=True, scilimits=(0,0))
     plt.xticks(rotation=20)
     plt.xlabel('')
-    plt.ylabel('Protons')
+    plt.ylabel('Integrated Protons')
     plt.grid(True, which='both', axis='both')
     
     ax2 = ax.twinx()
     ax2.plot(df['timestamp'], measurements, color='black', alpha=0.5)
     #suppress zero suppression
     ax2.set_ylim(bottom=0.0)
+    ax2.set_ylabel("Protons per pulse")
     plt.ticklabel_format(style='scientific', axis='y', useOffset=False, useMathText=True, scilimits=(0,0))
     
     # Legend
-    firsttimestamp = df['timestamp'].astype(str).iloc[0]
-    laasttimestamp = df['timestamp'].astype(str).iloc[-1]
+    #firsttimestamp = df['timestamp'].astype(str).iloc[0]
+    #laasttimestamp = df['timestamp'].astype(str).iloc[-1]
     firsttimestamp = str(pd.Timestamp(df['timestamp'].iloc[ 0], unit='s'))
     laasttimestamp = str(pd.Timestamp(df['timestamp'].iloc[-1], unit='s'))
+
     handles, labels = ax.get_legend_handles_labels()
     # manually define a new patch 
-    patch = mpatches.Patch(color='black', label='Per-shot E12', alpha=0.5)
+    patch = mpatches.Patch(color='black', label='Per pulse', alpha=0.5)
     handles.append(patch) 
     ax.legend(handles=handles, 
               title=firsttimestamp+'\n to \n'+laasttimestamp, 
-              bbox_to_anchor=(1.45, 1.00), 
-              loc='upper right')
+              bbox_to_anchor=(1.125, 1.00), 
+              loc='upper left')
     
     plt.tight_layout()
     plt.gcf().text(0.70, 0.1, extratext, fontsize=11)
