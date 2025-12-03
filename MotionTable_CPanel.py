@@ -154,19 +154,17 @@ def Read_Modbus():
         if not MotorDwn[0] == 1:
             Text12.config(text="Dwn")
             
-            
-   
         modbusClient.close()
-        
+
+        sys.stdout.flush()
+            
+        Text1.config(text=H_Pos)
+        Text2.config(text=V_Pos)
+
+        Text1.after(2000, Read_Modbus)
+
     except Exception as e:
             messagebox.showerror('Exception Reading input Registers from Server', str(e))
-    sys.stdout.flush()
-
-    Text1.config(text=H_Pos)
-    Text2.config(text=V_Pos)
-
-    Text1.after(2000, Read_Modbus)
-
     
 label = Label(app_window, font=text_font, bg=background, fg=foreground, bd=border_width) 
 label.place(relx=0.3, rely=0.026, height=31, width=254)
