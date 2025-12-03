@@ -146,7 +146,7 @@ else: print ('.')
 
 if debug: print (df)
 # Title string for plot
-title = 'ITA Proton Accumulation: '+'{0:.2e}'.format(df['Integrated Protons'].iloc[-1])
+title = '' #'ITA Proton Accumulation: '+'{0:.2e}'.format(df['Integrated Protons'].iloc[-1])
 if goal>0:
     df['Goal'] = goal
     title += '\n('+goal_pct_str+'% of '+goal_str+')'
@@ -187,7 +187,8 @@ if extrapolate:
     protons_lefttogo = goal - protons_sofar
     print ('Remaining POT: {0:.4e}\n'.format(protons_lefttogo))
     shotsleft_avg = protons_lefttogo/mean_counts
-    shotsleft_lo = protons_lefttogo/count_hi
+    #shotsleft_lo = protons_lefttogo/coucodent_hi
+    shotsleft_lo = protons_lefttogo/count_hi  #coucodent_hi to count_hi - edited by Manoj Jadhav
     shotsleft_hi = protons_lefttogo/count_lo
     print ('Remaining beam pulse count: Between {0:.4e} and {1:.4e}'.format(shotsleft_lo, shotsleft_hi))
     
