@@ -35,7 +35,7 @@ def checkdigit(s):
 
 # Using http interface.
 # Return: DataFrame with columns 'timestamp', 'proton count', and 'Integrated Protons'
-def getITAdata(T1, T2, device, logger, testrange=-1, debug=False):
+def getITAdata(T1, T2, device, logger, debug, testrange=-1):
     encoding = 'utf-8'
     URL = 'http://www-bd.fnal.gov/cgi-bin/acl.pl?acl=logger_get/start='+str(T1)+'/end='+str(T2)+'/node='+logger+'+'+str(device)
     if debug: print (URL)
