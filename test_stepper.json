@@ -1,0 +1,5 @@
+[
+    {"comment": "Intial Positioning"},
+    {"stepname": "HSTEP0", "pos": 150.0, "dose": 6.02e13},
+    {"stepname": "VSTEP0", "pos": 150.0, "dose": 1.00e13}
+]
