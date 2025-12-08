@@ -20,7 +20,7 @@ def notify(msg):
     }
     requests.post("https://api.pushover.net/1/messages.json", data=payload)
 
-def log(msg, filename="file_stepper.log"):
+def log(msg, filename):
     timestamp = datetime.now().strftime("[%H:%M:%S]")
     with open(filename, "a") as logfile:
         logfile.write(f"{timestamp}: {msg}\n")
@@ -178,6 +178,7 @@ def main():
     parser.add_argument('-v', dest='debug', action="store_true", default=False, help="Turn on verbose debugging. (default: False)")
     parser.add_argument('-b', dest='simulatebeam', action="store_true", default=False, help="Simulate a spill every spill delay. The size of the spill is spillsize (default: False)")
     parser.add_argument('-f', dest='filename', default="file_stepper.json", help="Input JSON file name. (default: file_stepper.json)")
+    parser.add_argument('-l', dest='logfilename', default="file_stepper.log", help="Name of the log file. (default: file_stepper.log)")
     parser.add_argument('-p', dest='progress_bar', action="store_true", default=False, help="Enable progress bar for vertical table motion (default: False)")
     parser.add_argument('-s', dest='spillsize', type=float, default=1.85E13, help="Number of protons in the event (default: 1.85E13)")
     parser.add_argument('-t', dest='datetimeformat', default="%%d-%%b-%%Y-%%H:%%M:%%S", help="Date/time format for integrateITA (default: %%d-%%b-%%Y-%%H:%%M:%%S)")
@@ -195,12 +196,12 @@ def main():
     for step in steps:
         if "comment" in step:
             print("COMMENT:", step["comment"])
-            log(step["comment"])
+            log(step["comment"],args.logfilename)
             continue
         
         position = 999999
         print(step["stepname"], step["pos"], step["dose"])
-        log(" ".join([str(step["stepname"]), str(step["pos"]), "Target:", str(step["dose"])]))
+        log(" ".join([str(step["stepname"]), str(step["pos"]), "Target:", str(step["dose"])]),args.logfilename)
 
         if "HSTEP" in step["stepname"]:
             hReadBack = ReadH()
@@ -221,12 +222,16 @@ def main():
         if "VSTEP" in step["stepname"]:
             vReadBack = ReadV()
             VGOTO(step["pos"])
+            vtimer = pd.Timestamp.now()
             time.sleep(args.delay)
             if vReadBack == ReadV():
                 VGOTO(step["pos"])
                 time.sleep(args.delay)
             print(vReadBack, step["pos"], abs(vReadBack - step["pos"]))
             while abs(vReadBack - step["pos"]) > args.tolerance:
+                now = pd.Timestamp.now()
+                if (vtimer - now).total_seconds()/60 > 5:
+                    notify("Table may be stuck in a vertical motion loop.")                    
                 vReadBack = ReadV()
                 if args.progress_bar: progress_bar(args.vdelay)
                 else: time.sleep(args.vdelay)
@@ -256,7 +261,7 @@ def main():
             DeltaT = (start - now).total_seconds()
             if (float(DeltaT)/60 > float(step["dose"])/args.spillsize+1):
                 notify("Check if the Beam has Stopped!")
-        log(" ".join([str(step["stepname"]), str(position), "Delivered", str(dose)]))
+        log(" ".join([str(step["stepname"]), str(position), "Delivered", str(dose)]),args.logfilename)
 
 if __name__ == "__main__": main()
 print("Done!")
