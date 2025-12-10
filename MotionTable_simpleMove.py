@@ -5,7 +5,7 @@ import sys
 import pdb
 #from pyModbusTCP.client import ModbusClient
 from easymodbus.modbusClient import *
-#from PIL import ImageTk, Image 
+#from PIL import ImageTk, Image
 import json
 from datetime import datetime, timedelta
 from integrateITA import getITAdata
@@ -54,7 +54,7 @@ def progress_bar(duration_seconds):
 
         time.sleep(0.1)  # update rate
     print("\nDone!")
-        
+
 def ReadH():
     H_Pos = 999999
     try:
@@ -67,7 +67,7 @@ def ReadH():
             H_Pos=(str((register)/100))
 
         modbusClient.close()
-        
+
     except Exception as e:
         notify("STOP BEAM!!! Table is stuck! Call the MCR at 1-630-840-3721!")
         print('Exception Reading input Registers from Server', str(e))
@@ -86,13 +86,13 @@ def ReadV():
             V_Pos=(str((register)/10))
 
         modbusClient.close()
-        
+
     except Exception as e:
         notify("STOP BEAM!!! Table is stuck! Call the MCR at 1-630-840-3721!")
         print('Exception Reading input Registers from Server', str(e))
 
     return round(float(V_Pos),1)
-            
+
 def HHome():
 
     try:
@@ -115,7 +115,7 @@ def HGOTO(h_pos):
             modbusClient.connect()
         modbusClient.write_single_register(0, int(h_pos*100))
         time.sleep(.5)
-    
+
         modbusClient.write_single_register(129, 3)
 
     except Exception as e:
@@ -139,7 +139,7 @@ def STOP():
     finally:
         modbusClient.close()
     print("STOP")
-    
+
 def VHome():
 
     try:
@@ -162,7 +162,7 @@ def VGOTO(v_pos):
             modbusClient.connect()
         modbusClient.write_single_register(2, int(v_pos*10))
         time.sleep(.5)
-    
+
         modbusClient.write_single_register(129, 5)
 
     except Exception as e:
@@ -171,7 +171,7 @@ def VGOTO(v_pos):
     finally:
         modbusClient.close()
     print("VGOTO:", v_pos)
-    
+
 def main():
 
     parser = argparse.ArgumentParser(description="Reads in a JSON file with a list of positions and doses and moves the table accordingly.")
@@ -184,7 +184,7 @@ def main():
     parser.add_argument('-t', dest='datetimeformat', default="%%d-%%b-%%Y-%%H:%%M:%%S", help="Date/time format for integrateITA (default: %%d-%%b-%%Y-%%H:%%M:%%S)")
     parser.add_argument('--dryrun', dest='dryrun', action="store_true", default=False, help="Just move the table, and don't wait for beam (default: False)")
     parser.add_argument('--delay', dest='delay', type=float, default=3.0, help="Delay to start table motion. (default: 3s)")
-    parser.add_argument('--hdelay', dest='hdelay', type=float, default=10.0, help="Delay for horizontal motion. (default: 10s)")
+    parser.add_argument('--hdelay', dest='hdelay', type=float, default=5.0, help="Delay for horizontal motion. (default: 5s)")
     parser.add_argument('--sdelay', dest='sdelay', type=float, default=10.0, help="Delay for checking the dose of the spill. (default: 10s)")
     parser.add_argument('--vdelay', dest='vdelay', type=float, default=30.0, help="Delay for vertical motion. (default: 30s)")
     parser.add_argument('--tolerance', dest='tolerance', type=float, default=0.5, help="Tolerance for the motion table. (default: 0.5mm)")
@@ -193,12 +193,13 @@ def main():
     with open(args.filename, "r") as stepfile:
         steps = json.load(stepfile)
 
+    notify("Starting Scan")
     for step in steps:
         if "comment" in step:
             print("COMMENT:", step["comment"])
             log(step["comment"],args.logfilename)
             continue
-        
+
         position = 999999
         print(step["stepname"], step["pos"], step["dose"])
         log(" ".join([str(step["stepname"]), str(step["pos"]), "Target:", str(step["dose"])]),args.logfilename)
@@ -231,7 +232,7 @@ def main():
             while abs(vReadBack - step["pos"]) > args.tolerance:
                 now = pd.Timestamp.now()
                 if (vtimer - now).total_seconds()/60 > 5:
-                    notify("Table may be stuck in a vertical motion loop.")                    
+                    notify("Table may be stuck in a vertical motion loop.")
                 vReadBack = ReadV()
                 if args.progress_bar: progress_bar(args.vdelay)
                 else: time.sleep(args.vdelay)
