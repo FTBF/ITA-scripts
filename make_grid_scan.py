@@ -28,9 +28,9 @@ def ordinal_word(n: int) -> str:
     return ORDINAL_WORDS.get(n, f"{n}th")
 
 
-def parse_list_file(path: str) -> List[float]:
+def parse_list_file(path: str) -> List[int]:
     """Read a text file with one numeric value per line."""
-    values: List[float] = []
+    values: List[int] = []
     with open(path, "r") as f:
         for line in f:
             line = line.strip()
@@ -38,16 +38,16 @@ def parse_list_file(path: str) -> List[float]:
                 continue
             if line.startswith("#"):
                 continue
-            values.append(float(line))
+            values.append(int(line))
     return values
 
 
 def build_h_dose_pattern(
-    hsteps_sorted: List[float],
-    low_dose: float,
-    med_dose: float,
-    high_dose: float,
-) -> List[float]:
+    hsteps_sorted: List[int],
+    low_dose: int,
+    med_dose: int,
+    high_dose: int,
+) -> List[int]:
     """
     Assign doses to the horizontal positions:
       - min (index 0) and max (index n-1): low dose
@@ -84,13 +84,12 @@ def build_h_dose_pattern(
 
     return doses
 
-
 def generate_serpentine_grid(
-    hsteps: List[float],
-    vsteps: List[float],
-    low_dose: float,
-    med_dose: float,
-    high_dose: float,
+    hsteps: List[int],
+    vsteps: List[int],
+    low_dose: int,
+    med_dose: int,
+    high_dose: int,
 ) -> List[Dict]:
     """
     Generate a serpentine scan pattern as a flat list of dictionaries.
@@ -98,8 +97,11 @@ def generate_serpentine_grid(
     Pattern:
       - Initial positioning at min H and min V (both low dose).
       - For each VSTEP (row), do a horizontal scan:
-          * odd rows: H from low → high
-          * even rows: H from high → low
+          * odd-numbered rows (1-based): H from low → high
+          * even-numbered rows: H from high → low
+        BUT:
+          * Do NOT re-visit the starting H position for that row
+            (the motor is already there).
       - Between rows, insert a vertical step with low dose.
       - Add comments before each horizontal scan and vertical move.
     """
@@ -140,6 +142,9 @@ def generate_serpentine_grid(
     )
     vstep_index += 1
 
+    # Track where the motor is horizontally (index into h_sorted)
+    current_h_idx = 0
+
     # Horizontal scans at each V position
     for row_idx, v_pos in enumerate(v_sorted, start=1):
         # Comment for this horizontal line scan
@@ -147,16 +152,21 @@ def generate_serpentine_grid(
             {"comment": f"{ordinal_word(row_idx)} Horizontal Line Scan"}
         )
 
+        n_h = len(h_sorted)
+
         # Determine H scan order for this row (serpentine)
         if (row_idx % 2) == 1:
             # odd row: left to right (low → high)
-            h_indices = range(len(h_sorted))
+            h_range = range(n_h)
         else:
             # even row: right to left (high → low)
-            h_indices = range(len(h_sorted) - 1, -1, -1)
+            h_range = range(n_h - 1, -1, -1)
 
-        # Add HSTEPs for this row
-        for idx in h_indices:
+        # Move along this row, but skip the first index if it's
+        # exactly where we already are (no need to step there again).
+        for idx in h_range:
+            if idx == current_h_idx:
+                continue  # already at this H position
             steps.append(
                 {
                     "stepname": f"HSTEP{hstep_index}",
@@ -165,6 +175,7 @@ def generate_serpentine_grid(
                 }
             )
             hstep_index += 1
+            current_h_idx = idx  # update motor location
 
         # After this horizontal pass, if there is another V row, step vertically
         if row_idx < len(v_sorted):
@@ -179,7 +190,9 @@ def generate_serpentine_grid(
                 }
             )
             vstep_index += 1
-
+            # Note: current_h_idx stays at the end of the row,
+            # so the next row starts from that H position
+            # and will skip it on the first HSTEP.
     return steps
 
 
@@ -201,9 +214,9 @@ def build_argparser() -> argparse.ArgumentParser:
     # HSTEP sources
     parser.add_argument(
         "--hsteps",
-        type=float,
+        type=int,
         nargs="+",
-        help="List of horizontal positions (HSTEPs) as floats.",
+        help="List of horizontal positions (HSTEPs) as ints.",
     )
     parser.add_argument(
         "--hfile",
@@ -213,9 +226,9 @@ def build_argparser() -> argparse.ArgumentParser:
     # VSTEP sources
     parser.add_argument(
         "--vsteps",
-        type=float,
+        type=int,
         nargs="+",
-        help="List of vertical positions (VSTEPs) as floats.",
+        help="List of vertical positions (VSTEPs) as ints.",
     )
     parser.add_argument(
         "--vfile",
@@ -225,19 +238,19 @@ def build_argparser() -> argparse.ArgumentParser:
     # Doses
     parser.add_argument(
         "--dose-low",
-        type=float,
+        type=int,
         default=1.00e13,
         help="Low dose (for VSTEPs and min/max HSTEPs). Default: 1.00e13",
     )
     parser.add_argument(
         "--dose-med",
-        type=float,
+        type=int,
         default=6.02e13,
         help="Medium dose (first half of interior HSTEPs). Default: 6.02e13",
     )
     parser.add_argument(
         "--dose-high",
-        type=float,
+        type=int,
         default=1.20e14,
         help="High dose (second half of interior HSTEPs). Default: 1.20e14",
     )
@@ -250,7 +263,7 @@ def get_positions(
     list_attr: str,
     file_attr: str,
     kind: str,
-) -> List[float]:
+) -> List[int]:
     """Resolve positions from either a list on the command line or a file."""
     list_values = getattr(args, list_attr)
     file_path = getattr(args, file_attr)
@@ -282,9 +295,9 @@ def main() -> None:
     steps = generate_serpentine_grid(
         hsteps=hsteps,
         vsteps=vsteps,
-        low_dose=args.dose_low,
-        med_dose=args.dose_med,
-        high_dose=args.dose_high,
+        low_dose=int(args.dose_low),
+        med_dose=int(args.dose_med),
+        high_dose=int(args.dose_high),
     )
 
     with open(args.output, "w") as f:
